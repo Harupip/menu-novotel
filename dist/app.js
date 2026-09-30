@@ -1,4 +1,4 @@
-/* DOCX is generated locally; menu data is not sent to a server. */
+/* DOCX is generated locally. Only dish names requested for translation are sent to MyMemory. */
 const STORE = "soan-menu-v1";
 const seedGroups = [["Khai vị","Appetizer"],["Súp","Soup"],["Món chính","Main course"],["Tráng miệng","Dessert"]];
 const fieldLabels = {title:"Tên menu",subtitle:"Dòng phụ / tên đoàn",price:"Giá / ghi chú"};
@@ -33,6 +33,10 @@ const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"
 const current=()=>state.menus.find(m=>m.id===state.active);
 let toastTimer;
 function notify(msg){$("#status").textContent=msg;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$("#status").textContent="",4500);}
+const translateText=DishTranslation.createTranslator();
+async function translateDish(item){
+ item.en=await translateText(item.vi);
+}
 function save(){try{localStorage.setItem(STORE,JSON.stringify(state));$("#save-state").textContent="Đã lưu trên thiết bị này";}catch{$("#save-state").textContent="Chưa lưu được bản nháp";}preview();}
 function formatButtons(k,f){return '<div class="format" role="group" aria-label="Định dạng '+fieldLabels[k]+'">'+[["bold","B","In đậm"],["italic","I","In nghiêng"],["underline","U","Gạch chân"]].map(([a,t,label])=>'<button type="button" data-action="format" data-field="'+k+'" data-format="'+a+'" aria-label="'+label+' '+fieldLabels[k]+'" aria-pressed="'+!!f[a]+'" style="'+(a==="bold"?"font-weight:bold":a==="italic"?"font-style:italic":"text-decoration:underline")+'">'+t+'</button>').join("")+'<select data-field="'+k+'" data-size aria-label="Cỡ chữ '+fieldLabels[k]+'">'+[11,12,13,14,16,18,20,22,24,28].map(n=>'<option '+(n===f.size?"selected":"")+' value="'+n+'">'+n+' pt</option>').join("")+'</select></div>';}
 function render(){
@@ -40,8 +44,9 @@ function render(){
  $("#tabs").innerHTML=state.menus.map((x,i)=>'<button data-menu="'+x.id+'" aria-selected="'+(x.id===m.id)+'">Menu '+(i+1)+'</button>').join("");
  $("#form").innerHTML='<section class="card"><h2>Trình bày menu</h2><p class="hint">Áp dụng cho toàn bộ menu đang chọn, cả bản xem trước và file Word.</p><label class="check"><input type="checkbox" data-option="showVietnameseGroups" '+(m.showVietnameseGroups?"checked":"")+'> Hiện tên nhóm tiếng Việt</label><label class="check"><input type="checkbox" data-option="showStars" '+(m.showStars?"checked":"")+'> Hiện *** phía trên các nhóm món</label><div class="field"><label for="language-order">Thứ tự ngôn ngữ</label><select id="language-order" data-option="languageOrder"><option value="en-first" '+(m.languageOrder==="en-first"?"selected":"")+'>Tiếng Anh trước · Tiếng Việt sau</option><option value="vi-first" '+(m.languageOrder==="vi-first"?"selected":"")+'>Tiếng Việt trước · Tiếng Anh sau</option></select></div></section>'+
  '<section class="card"><h2>Thông tin đầu menu</h2><p class="hint">Chọn B, I, U cho từng dòng. Có thể kết hợp cả ba.</p>'+Object.entries(fieldLabels).map(([k,label])=>'<div class="field"><label for="field-'+k+'">'+label+'</label><input id="field-'+k+'" data-field="'+k+'" value="'+esc(m[k].text)+'" placeholder="'+(k==="price"?"Ví dụ: VND 700,000 / person":k==="subtitle"?"Không bắt buộc":"Tên menu")+'">'+formatButtons(k,m[k])+'</div>').join("")+'</section>'+
+ '<section class="translate-card"><div><strong>Dịch nhanh tên món</strong><p>Chỉ tên món tiếng Việt chưa có bản tiếng Anh được gửi tới MyMemory. Hãy kiểm tra lại thuật ngữ ẩm thực trước khi xuất Word.</p></div><button type="button" data-action="translate-all">Dịch các món còn thiếu</button></section>'+
  m.groups.map((g,gi)=>'<section class="card" data-group="'+g.id+'"><div class="group-head"><h2>Nhóm món '+(gi+1)+'</h2><div class="tools"><button data-action="group-up" aria-label="Đưa nhóm lên" '+(!gi?"disabled":"")+'>↑</button><button data-action="group-down" aria-label="Đưa nhóm xuống" '+(gi===m.groups.length-1?"disabled":"")+'>↓</button><button class="danger" data-action="group-delete" aria-label="Xóa nhóm '+esc(g.vi)+'">Xóa</button></div></div><div class="name-grid"><div><label for="gvi-'+g.id+'">Tên nhóm · Tiếng Việt</label><input id="gvi-'+g.id+'" data-group-name="vi" value="'+esc(g.vi)+'"></div><div><label for="gen-'+g.id+'">Tên nhóm · Tiếng Anh</label><input id="gen-'+g.id+'" data-group-name="en" value="'+esc(g.en)+'"></div></div>'+
- g.items.map((d,di)=>'<div class="dish" data-item="'+d.id+'"><div class="dish-top"><span>MÓN '+(di+1)+'</span><div class="tools"><button data-action="item-up" aria-label="Đưa món lên" '+(!di?"disabled":"")+'>↑</button><button data-action="item-down" aria-label="Đưa món xuống" '+(di===g.items.length-1?"disabled":"")+'>↓</button><button data-action="item-delete" class="danger" aria-label="Xóa món">Xóa</button></div></div><label for="vi-'+d.id+'">Tiếng Việt</label><input id="vi-'+d.id+'" data-lang="vi" value="'+esc(d.vi)+'" placeholder="Nhập tên món tiếng Việt"><label for="en-'+d.id+'">Tiếng Anh</label><input id="en-'+d.id+'" data-lang="en" value="'+esc(d.en)+'" placeholder="Nhập bản tiếng Anh"></div>').join("")+'<button class="add-dish" data-action="item-add">+ Thêm món</button></section>').join("")+
+ g.items.map((d,di)=>'<div class="dish" data-item="'+d.id+'"><div class="dish-top"><span>MÓN '+(di+1)+'</span><div class="tools"><button data-action="item-up" aria-label="Đưa món lên" '+(!di?"disabled":"")+'>↑</button><button data-action="item-down" aria-label="Đưa món xuống" '+(di===g.items.length-1?"disabled":"")+'>↓</button><button data-action="item-delete" class="danger" aria-label="Xóa món">Xóa</button></div></div><label for="vi-'+d.id+'">Tiếng Việt</label><input id="vi-'+d.id+'" data-lang="vi" value="'+esc(d.vi)+'" placeholder="Nhập tên món tiếng Việt"><div class="translation-label"><label for="en-'+d.id+'">Tiếng Anh</label><button type="button" class="translate-one" data-action="translate-one" '+(!d.vi.trim()?"disabled":"")+'>'+(d.en.trim()?"Dịch lại":"Dịch tên món")+'</button></div><input id="en-'+d.id+'" data-lang="en" value="'+esc(d.en)+'" placeholder="Nhập hoặc dịch tự động sang tiếng Anh"></div>').join("")+'<button class="add-dish" data-action="item-add">+ Thêm món</button></section>').join("")+
  '<div class="bottom-actions"><button data-action="group-add">+ Thêm nhóm món</button>'+(state.menus.length>1?'<button class="danger" data-action="menu-delete">Xóa menu này</button>':"")+'</div>';
  preview();
 }
@@ -65,11 +70,28 @@ $("#form").addEventListener("input",e=>{
 });
 $("#form").addEventListener("change",e=>{const t=e.target;if(t.matches("[data-option]"))current()[t.dataset.option]=t.type==="checkbox"?t.checked:t.value;else if(t.matches("[data-size]"))current()[t.dataset.field].size=Number(t.value);else return;save();});
 function move(list,index,delta){const to=index+delta;if(index>=0 && to>=0 && to<list.length)[list[index],list[to]]=[list[to],list[index]];}
-$("#form").addEventListener("click",e=>{
+$("#form").addEventListener("click",async e=>{
  const b=e.target.closest("button[data-action]");if(!b)return;
  const m=current(),g=groupFor(b),a=b.dataset.action,gi=m.groups.indexOf(g);
  const id=b.closest("[data-item]")?.dataset.item,di=g?.items.findIndex(i=>i.id===id);
  if(a==="format"){m[b.dataset.field][b.dataset.format]=!m[b.dataset.field][b.dataset.format];b.setAttribute("aria-pressed",m[b.dataset.field][b.dataset.format]);save();return;}
+ if(a==="translate-one"){
+  const item=g.items[di];b.disabled=true;b.textContent="Đang dịch…";
+  try{await translateDish(item);save();render();notify("Đã dịch tên món. Hãy kiểm tra lại trước khi xuất Word.");}
+  catch(error){console.error(error);b.disabled=false;b.textContent=item.en.trim()?"Dịch lại":"Dịch tên món";notify("Chưa dịch được. Kiểm tra kết nối mạng rồi thử lại.");}
+  return;
+ }
+ if(a==="translate-all"){
+  const items=m.groups.flatMap(group=>group.items).filter(item=>item.vi.trim()&&!item.en.trim());
+  if(!items.length){notify("Không có món nào đang thiếu bản tiếng Anh.");return;}
+  b.disabled=true;b.textContent="Đang dịch 0/"+items.length+"…";let translated=0;
+  for(const item of items){
+   try{await translateDish(item);translated++;b.textContent="Đang dịch "+translated+"/"+items.length+"…";}
+   catch(error){console.error(error);break;}
+  }
+  save();render();notify(translated===items.length?"Đã dịch "+translated+" tên món. Hãy kiểm tra lại bản dịch.":"Đã dịch "+translated+"/"+items.length+" món; kết nối dịch bị gián đoạn.");
+  return;
+ }
  if(a==="group-add")m.groups.push({id:uid(),vi:"Nhóm mới",en:"",items:[]});
  if(a==="group-delete"){if(g.items.some(i=>i.vi.trim()||i.en.trim())&&!confirm("Xóa nhóm này cùng các món bên trong?"))return;m.groups.splice(gi,1);}
  if(a==="group-up")move(m.groups,gi,-1);
