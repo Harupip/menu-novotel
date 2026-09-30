@@ -20,14 +20,14 @@ function sample(){
  return {menus:[m],active:m.id};
 }
 let state=sample();
-function validState(s){return s && Array.isArray(s.menus) && s.menus.length>0 && s.menus.every(m=>typeof m.id==="string" && ["title","subtitle","price"].every(k=>m[k] && typeof m[k].text==="string" && [11,12,13,14,16,18,20,22,24,28].includes(m[k].size)) && Array.isArray(m.groups) && m.groups.every(g=>typeof g.id==="string" && typeof g.vi==="string" && typeof g.en==="string" && Array.isArray(g.items) && g.items.every(i=>typeof i.id==="string" && typeof i.vi==="string" && typeof i.en==="string")));}
+function validState(s){return s && Array.isArray(s.menus) && s.menus.every(m=>typeof m.id==="string" && ["title","subtitle","price"].every(k=>m[k] && typeof m[k].text==="string" && [11,12,13,14,16,18,20,22,24,28].includes(m[k].size)) && Array.isArray(m.groups) && m.groups.every(g=>typeof g.id==="string" && typeof g.vi==="string" && typeof g.en==="string" && Array.isArray(g.items) && g.items.every(i=>typeof i.id==="string" && typeof i.vi==="string" && typeof i.en==="string")));}
 try {const saved=JSON.parse(localStorage.getItem(STORE));if(validState(saved))state=saved;} catch {}
 for(const m of state.menus){
  m.showVietnameseGroups=m.showVietnameseGroups===true;
  m.showStars=m.showStars!==false;
  m.languageOrder=m.languageOrder==="vi-first"?"vi-first":"en-first";
 }
-if(!state.menus.some(m=>m.id===state.active))state.active=state.menus[0].id;
+if(!state.menus.some(m=>m.id===state.active))state.active=state.menus[0]?.id||null;
 const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const current=()=>state.menus.find(m=>m.id===state.active);
@@ -41,7 +41,7 @@ async function translateDish(item,changes){
  item.en=translated;
 }
 function undoTranslation(){
- if(translating||translationUndo?.menuId!==current().id)return false;
+ if(!current()||translating||translationUndo?.menuId!==current().id)return false;
  const items=new Set(current().groups.flatMap(g=>g.items));
  for(const {item,before,after} of translationUndo.changes){
   if(items.has(item)&&item.en===after)item.en=before;
@@ -57,6 +57,8 @@ function save(){try{localStorage.setItem(STORE,JSON.stringify(state));$("#save-s
 function formatButtons(k,f){return '<div class="format" role="group" aria-label="Định dạng '+fieldLabels[k]+'">'+[["bold","B","In đậm"],["italic","I","In nghiêng"],["underline","U","Gạch chân"]].map(([a,t,label])=>'<button type="button" data-action="format" data-field="'+k+'" data-format="'+a+'" aria-label="'+label+' '+fieldLabels[k]+'" aria-pressed="'+!!f[a]+'" style="'+(a==="bold"?"font-weight:bold":a==="italic"?"font-style:italic":"text-decoration:underline")+'">'+t+'</button>').join("")+'<select data-field="'+k+'" data-size aria-label="Cỡ chữ '+fieldLabels[k]+'">'+[11,12,13,14,16,18,20,22,24,28].map(n=>'<option '+(n===f.size?"selected":"")+' value="'+n+'">'+n+' pt</option>').join("")+'</select></div>';}
 function render(){
  const m=current();
+ $("main").classList.toggle("no-menus",!m);$("#empty-state").hidden=!!m;$("#export").disabled=!m;
+ if(!m){$("#tabs").innerHTML="";$("#form").innerHTML="";preview();return;}
  $("#tabs").innerHTML=state.menus.map((x,i)=>'<button data-menu="'+x.id+'" aria-selected="'+(x.id===m.id)+'">Menu '+(i+1)+'</button>').join("");
  $("#form").innerHTML='<section class="card"><h2>Trình bày menu</h2><p class="hint">Áp dụng cho toàn bộ menu đang chọn, cả bản xem trước và file Word.</p><label class="check"><input type="checkbox" data-option="showVietnameseGroups" '+(m.showVietnameseGroups?"checked":"")+'> Hiện tên nhóm tiếng Việt</label><label class="check"><input type="checkbox" data-option="showStars" '+(m.showStars?"checked":"")+'> Hiện *** phía trên các nhóm món</label><div class="field"><label for="language-order">Thứ tự ngôn ngữ</label><select id="language-order" data-option="languageOrder"><option value="en-first" '+(m.languageOrder==="en-first"?"selected":"")+'>Tiếng Anh trước · Tiếng Việt sau</option><option value="vi-first" '+(m.languageOrder==="vi-first"?"selected":"")+'>Tiếng Việt trước · Tiếng Anh sau</option></select></div></section>'+
  '<section class="card"><h2>Thông tin đầu menu</h2><p class="hint">Chọn B, I, U cho từng dòng. Có thể kết hợp cả ba.</p>'+Object.entries(fieldLabels).map(([k,label])=>'<div class="field"><label for="field-'+k+'">'+label+'</label><input id="field-'+k+'" data-field="'+k+'" value="'+esc(m[k].text)+'" placeholder="'+(k==="price"?"Ví dụ: VND 700,000 / person":k==="subtitle"?"Không bắt buộc":"Tên menu")+'">'+formatButtons(k,m[k])+'</div>').join("")+'</section>'+
@@ -70,6 +72,7 @@ function orderedLanguages(m){return m.languageOrder==="vi-first"?["vi","en"]:["e
 function groupTitle(g,m){return orderedLanguages(m).filter(lang=>lang!=="vi"||m.showVietnameseGroups).map(lang=>g[lang]).filter(t=>t.trim()).join(" / ");}
 function preview(){
  const m=current();
+ if(!m){$("#paper").innerHTML="";$("#export").textContent="Tải file Word";$("#export").disabled=true;return;}
  $("#paper").innerHTML=["title","subtitle","price"].filter(k=>m[k].text.trim()).map(k=>{const f=m[k];return '<p class="heading" style="font-size:'+f.size+'pt;font-weight:'+(f.bold?"bold":"normal")+';font-style:'+(f.italic?"italic":"normal")+';text-decoration:'+(f.underline?"underline":"none")+'">'+esc(f.text)+'</p>';}).join("")+
  m.groups.filter(g=>g.items.some(i=>i.vi.trim()||i.en.trim())).map(g=>'<section class="group">'+(m.showStars?'<div class="stars">***</div>':"")+(groupTitle(g,m)?'<h3>'+esc(groupTitle(g,m))+'</h3>':"")+g.items.filter(i=>i.vi.trim()||i.en.trim()).map(i=>'<div class="menu-dish">'+orderedLanguages(m).filter(lang=>i[lang].trim()).map(lang=>'<p class="'+lang+'">'+esc(i[lang])+'</p>').join("")+'</div>').join("")+'</section>').join("")+
  (m.groups.every(g=>g.items.every(i=>!i.vi.trim()&&!i.en.trim()))?'<p class="empty">Thêm món để xem menu tại đây.</p>':"");
@@ -131,6 +134,15 @@ $("#form").addEventListener("click",async e=>{
 $("#tabs").addEventListener("click",e=>{const b=e.target.closest("[data-menu]");if(b){state.active=b.dataset.menu;save();render();}});
 $("#add-menu").addEventListener("click",()=>{const m=newMenu(state.menus.length+1);state.menus.push(m);state.active=m.id;save();render();$("#field-title").focus();});
 let importing=false;
+$("#empty-add").addEventListener("click",()=>$("#add-menu").click());
+$("#empty-import").addEventListener("click",()=>$("#open-import").click());
+$("#reset-menu").addEventListener("click",()=>{
+ if(importing||translating){notify("Chờ dịch/import hoàn tất rồi xóa toàn bộ menu.");return;}
+ if(!confirm("Xóa TẤT CẢ menu và bản nháp trên thiết bị này để bắt đầu lại? Không thể hoàn tác thao tác này."))return;
+ state={menus:[],active:null};translationUndo=null;
+ $("#import-text").value="";$("#import-excel").value="";$("#import-message").textContent="";
+ save();render();$("#empty-add").focus();notify("Đã xóa toàn bộ menu. Bạn có thể soạn mới hoặc import lại.");
+});
 $("#ai-prompt").value=MenuExcel.AI_PROMPT;
 $("#copy-prompt").addEventListener("click",async()=>{
  try{await navigator.clipboard.writeText(MenuExcel.AI_PROMPT);$("#prompt-message").textContent="Đã sao chép. Dán vào AI và đính kèm file Word của bạn.";}
@@ -146,7 +158,7 @@ $("#drop-zone").addEventListener("drop",e=>{e.preventDefault();$("#drop-zone").c
 $("#import-excel").addEventListener("change",async e=>{await importFile(e.target.files[0]);e.target.value="";});
 async function importFile(file){
  if(!file||importing)return;
- importing=true;$("#choose-import").disabled=true;$("#import-message").textContent="Đang đọc file…";
+ importing=true;$("#choose-import").disabled=true;$("#import-paste").disabled=true;$("#import-message").textContent="Đang đọc file…";
  try{
   if(!/\.(xlsx|md|txt)$/i.test(file.name)||file.size>5*1024*1024)throw new Error("Chọn file .xlsx, .md hoặc .txt tối đa 5 MB.");
   const parsed=/\.xlsx$/i.test(file.name)?MenuExcel.parseWorkbook(XLSX.read(await file.arrayBuffer(),{type:"array"}),XLSX):MenuExcel.parseText(await file.text(),XLSX);
@@ -156,7 +168,7 @@ async function importFile(file){
   });
   state.menus.push(...menus);state.active=menus[0].id;save();render();$("#import-message").textContent="Đã thêm "+menus.length+" menu từ "+file.name+". Đóng cửa sổ để chỉnh sửa menu.";
  }catch(error){console.error(error);$("#import-message").textContent=error.message||"Không đọc được file Excel.";}
- finally{importing=false;$("#choose-import").disabled=false;}
+ finally{importing=false;$("#choose-import").disabled=false;$("#import-paste").disabled=false;$("#import-message").scrollIntoView({block:"nearest"});}
 }
 function buildDocument(menus,D){
  const {Document,Paragraph,TextRun,AlignmentType,UnderlineType}=D;

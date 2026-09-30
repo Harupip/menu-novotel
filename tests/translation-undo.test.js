@@ -3,19 +3,49 @@ const assert=require("node:assert/strict");
 const fs=require("node:fs");
 const vm=require("node:vm");
 
-function editor(){
+function editor(confirmResult=true,initial=null){
  const elements=new Map(),handlers={};
- const element=()=>({textContent:"",innerHTML:"",addEventListener(name,fn){this[name]=fn;}});
+ let saved;
+ const element=()=>({textContent:"",innerHTML:"",classList:{toggle(){}},focus(){},scrollIntoView(){},addEventListener(name,fn){this[name]=fn;}});
  const context=vm.createContext({
-  crypto:require("node:crypto"),console,setTimeout:()=>0,clearTimeout(){},
-  localStorage:{getItem:()=>null,setItem(){}},
+  crypto:require("node:crypto"),console,setTimeout:()=>0,clearTimeout(){},confirm:()=>confirmResult,
+  localStorage:{getItem:()=>JSON.stringify(initial),setItem(key,value){saved=JSON.parse(value);}},
   document:{querySelector(selector){if(!elements.has(selector))elements.set(selector,element());return elements.get(selector);},addEventListener(name,fn){handlers[name]=fn;}},
   DishTranslation:{createTranslator:()=>async text=>"Translated: "+text}
   ,MenuExcel:require('../dist/excel-import.js'),XLSX:require('../dist/vendor/xlsx.full.min.js')
  });
  vm.runInContext(fs.readFileSync(require.resolve("../dist/app.js"),"utf8"),context);
- return {run:code=>vm.runInContext(code,context),handlers,elements};
+ return {run:code=>vm.runInContext(code,context),handlers,elements,stored:()=>saved};
 }
+
+test('xóa toàn bộ lưu danh sách rỗng và không tạo tab Menu 1',()=>{
+ const app=editor();
+ app.run('state.menus.push(newMenu());translationUndo={menuId:current().id,changes:[]};');
+ assert.equal(typeof app.elements.get('#reset-menu')?.click,'function');
+ app.elements.get('#reset-menu').click();
+ assert.equal(app.run('state.menus.length'),0);
+ assert.equal(app.elements.get('#tabs').innerHTML,'');
+ assert.equal(app.elements.get('#empty-state').hidden,false);
+ assert.equal(app.run('translationUndo'),null);
+ assert.equal(app.stored().menus.length,0);
+ assert.equal(app.stored().active,null);
+ const reloaded=editor(true,app.stored());
+ assert.equal(reloaded.run('state.menus.length'),0);
+ assert.equal(reloaded.run('undoTranslation()'),false);
+ reloaded.elements.get('#add-menu').click();
+ assert.equal(reloaded.run('state.menus.length'),1);
+ assert.equal(reloaded.elements.get('#empty-state').hidden,true);
+});
+
+test('hủy xác nhận hoặc đang import/dịch thì giữ nguyên bản nháp',()=>{
+ for(const [confirmed,busy] of [[false,''],[true,'importing=true'],[true,'translating=true']]){
+  const app=editor(confirmed);app.run('globalThis.before=JSON.stringify(state);'+busy);
+  assert.equal(typeof app.elements.get('#reset-menu')?.click,'function');
+  app.elements.get('#reset-menu').click();
+  assert.equal(app.run('JSON.stringify(state)'),app.run('before'));
+  assert.equal(app.stored(),undefined);
+ }
+});
 
 test("hoàn tác dịch lại khôi phục bản cũ và giữ phần sửa tay",async()=>{
  const app=editor();

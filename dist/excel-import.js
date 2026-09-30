@@ -64,7 +64,7 @@
     if(!menuRow||hasGroup)fail();
     const col=match[1].toLowerCase()==='giá'?4:3;
     if(menuRow[col]!==undefined)fail();menuRow[col]=match[2].trim();
-   }else if((match=line.match(/^(##\s+|-\s+)(.*)$/))){
+   }else if((match=line.match(/^(##\s+|[-*]\s+)(.*)$/))){
     const parts=match[2].split('|').map(s=>s.trim());if(parts.length>2)fail();
     row=[match[1].startsWith('##')?'NHÓM':'MÓN',parts[0],parts[1]||''];hasGroup=true;
    }else fail();
@@ -75,10 +75,11 @@
  }
  const AI_PROMPT=`Hãy chuyển file Word/menu tôi đính kèm thành Markdown để nhập vào app Soạn menu.
 Đọc toàn bộ file, giữ đủ menu, thứ tự nhóm và món. Sửa lỗi chính tả rõ ràng. Không tự thêm món, nguyên liệu, giá, khẩu phần hoặc nhóm không có trong nguồn.
+Giữ nguyên tên và số thứ tự menu đúng như trong file gốc, không dịch hoặc đổi tên theo ví dụ. Nếu nguồn ghi "MENU số 1", tiêu đề phải là "# MENU số 1", không đổi thành "# SET MENU 1". Nếu không xác định được tên menu, hỏi tôi trước khi tạo bản cuối.
 Ghép đúng tên Việt và Anh của cùng một món, không tách chúng thành hai món. Nếu thiếu một ngôn ngữ, dịch từ tên còn lại bằng thuật ngữ ẩm thực phù hợp. Nếu cả hai tên mơ hồ, thiếu hoặc không đọc rõ, hỏi tôi trước khi tạo bản cuối; không đoán. Giữ nguyên giá và thông tin đoàn, để trống nếu nguồn không có.
 Trả về chỉ nội dung Markdown, không lời giải thích, không bọc trong dấu ba backtick, không bảng. Một dòng cho một món. Không dùng ký tự | trong tên; ký tự này chỉ ngăn cách Việt và Anh.
-Định dạng bắt buộc:
-# SET MENU 1
+Ví dụ cấu trúc bắt buộc dưới đây chỉ minh họa. Tên menu, nhóm, món, dòng phụ và giá phải lấy từ file gốc; không sao chép dữ liệu ví dụ vào kết quả:
+# MENU số 1
 > Dòng phụ: Đoàn A
 > Giá: 700,000 VND / người
 ## Khai vị | Appetizer
@@ -86,7 +87,7 @@ Trả về chỉ nội dung Markdown, không lời giải thích, không bọc t
 - Salad rau | Vegetable salad
 ## Món chính | Main course
 - Cá hồi nướng | Grilled salmon
-# SET MENU 2
+# MENU số 2
 ## Súp | Soup
 - Súp bí đỏ | Pumpkin soup
 Mỗi menu bắt đầu bằng #. Nhóm dùng ##. Món dùng - và nằm dưới nhóm. Dòng phụ và giá (nếu có) đặt ngay sau #, trước nhóm đầu tiên. Tối đa 500 dòng mỗi file; nếu vượt, chia thành nhiều file tại ranh giới menu.
